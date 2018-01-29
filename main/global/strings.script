@@ -1,0 +1,11 @@
+function string_split(s, delimiter)
+	result = {};
+	for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+		table.insert(result, match);
+	end
+	return result;
+end
+
+function string_ends_with(s, delimiter)
+	return string.sub(s,-string.len(delimiter)) == delimiter
+end

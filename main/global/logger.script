@@ -1,0 +1,7 @@
+
+
+logger = {}
+logger.debug = function(str)
+	local message = {type="DEBUG", message=str}
+	pprint(message)
+end

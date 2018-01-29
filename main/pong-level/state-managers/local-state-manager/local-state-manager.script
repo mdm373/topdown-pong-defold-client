@@ -1,0 +1,101 @@
+go.property("paddleSpeed", .1);
+go.property("startSpeedRange", 1)
+go.property("startSpeedMin", 1)
+go.property("pongLevelUrl",msg.url("."))
+
+math.randomseed(os.time())
+for i = 0, 100 do
+	math.random();
+end
+
+
+local broadcastStateUpdate = function(self, state)
+	msg.post(self.pongLevelUrl, pongStateMsg.stateUpdatedMsgId, pongStateMsg.getStateUpdatedMsg(state));
+end
+
+local updatePlayerPosition = function(self, state, playerType, dt)
+	local increment = self.paddleSpeed * dt
+	local playerState = pongState.getPlayerState(state, playerType);
+	if playerState.requestDir == pongState.moveRequestType.up then
+		playerState.position = playerState.position + increment;
+	elseif playerState.requestDir == pongState.moveRequestType.down then
+		playerState.position = playerState.position - increment;
+	end
+	playerState.position = math.min(playerState.position, 1)
+	playerState.position = math.max(playerState.position, 0)
+end
+
+
+local getRandomSpeedFactor = function(self)
+	local sign = math.random(-1, 0);
+	if(sign == 0) then
+		sign = 1;
+	end
+		
+	local factor = math.random() * self.startSpeedRange * sign;
+	return factor + (self.startSpeedMin * sign);
+end
+
+local getCurrentWinner = function(state) 
+	local winner = 0;
+	if state.ball.position.x <= 0 then
+		winner = 2;
+	elseif state.ball.position.x >= 1 then
+		winner = 1;
+	end
+	return winner
+end
+
+local updateBallPhysics = function(ballState, dt)
+	if ballState.bounceDir == ball.dir.LEFT and ballState.speed.x < 0 then
+		ballState.speed.x = -ballState.speed.x
+	elseif ballState.bounceDir == ball.dir.RIGHT and ballState.speed.x > 0 then
+		ballState.speed.x = -ballState.speed.x
+	elseif ballState.position.y <= 0 and ballState.speed.y < 0 then
+		ballState.speed.y = -ballState.speed.y
+	elseif ballState.position.y >= 1 and ballState.speed.y > 0 then
+		ballState.speed.y = -ballState.speed.y
+	end
+	ballState.bounceDir = ball.dir.NONE
+	ballState.position.x = ballState.position.x + dt*ballState.speed.x
+	ballState.position.y = ballState.position.y + dt*ballState.speed.y
+end
+	
+local resetState = function(self, playerOneScore, playerTwoScore, playerOnePosition, playerTwoPosition)
+	self.state = pongState.getDefaultState(playerOneScore, playerTwoScore, playerOnePosition, playerTwoPosition)
+	self.state.ball.speed = {y = getRandomSpeedFactor(self), x = getRandomSpeedFactor(self)}
+	broadcastStateUpdate(self, self.state)
+end
+
+function init(self)
+	resetState(self, 0, 0, .5, .5)
+end
+
+function on_message(self, message_id, message, sender)
+	if hash(pongStateMsg.actorInputMsgId) == message_id then
+		local playerType = message.playerIndex
+		local requestType = message.directionType
+		pongState.updatePlayerStateForRequest(self.state, playerType, requestType)
+	elseif hash("ball-bounce") == message_id then
+		self.state.ball.bounceDir = message.direction;
+	end
+end
+
+function update(self, dt)
+	pprint(dt);
+	local winner = getCurrentWinner(self.state)
+	if winner > 0 then
+		local playerOneScore = winner == 1 and self.state.playerOne.score+1 or self.state.playerOne.score
+		local playerTwoScore = winner == 2 and self.state.playerTwo.score+1 or self.state.playerTwo.score
+		resetState(self, playerOneScore, playerTwoScore, self.state.playerOne.position, self.state.playerTwo.position)
+	else
+		local newState = pongState.getStateCopy(self.state)
+		updateBallPhysics(newState.ball, dt)
+		updatePlayerPosition(self, newState, pongState.playerType.one, dt)
+		updatePlayerPosition(self, newState, pongState.playerType.two, dt)
+		if pongState.isDirty(self.state, newState) then
+			broadcastStateUpdate(self, newState)
+		end
+		self.state = newState;
+	end
+end

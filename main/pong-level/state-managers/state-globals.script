@@ -1,0 +1,70 @@
+local getPlayerStateCopy = function(playerState)
+	return { 
+		position = playerState.position,
+		requestDir = playerState.requestDir,
+		score = playerState.score
+	}
+end
+
+local getBallStateCopy = function(ballState)
+	return {
+		position = { x = ballState.position.x, y = ballState.position.y}, 
+		speed = { x = ballState.speed.x, y = ballState.speed.y},
+		bounceDir = ballState.bounceDir
+	}
+end
+
+local isPlayerStateDirty = function(playerStateA, playerStateB)
+	return playerStateA.position ~= playerStateB.position
+end
+
+local isBallStateDirty = function(ballStateA, ballStateB)
+	return ballStateA.position.x ~= ballStateB.position.x or ballStateA.position.y ~= ballStateB.position.y;
+end
+
+pongState  = {
+	playerType = { one = 1, two = 2},
+	moveRequestType =  {up = 1, down = -1, none=0},
+	getStateCopy = function(state)
+		return {
+			playerOne = getPlayerStateCopy(state.playerOne),
+			playerTwo = getPlayerStateCopy(state.playerTwo),
+			ball = getBallStateCopy(state.ball)
+		}
+	end,
+	getDefaultState = function(playerOneScore, playerTwoScore, playerOnePosition, playerTwoPosition)
+		local state = {playerOne= {}, playerTwo = {}, ball = {} }
+		state.playerOne.position = playerOnePosition
+		state.playerOne.requestDir = pongState.moveRequestType.none
+		state.playerOne.score = playerOneScore;
+		state.playerTwo.position = playerTwoPosition
+		state.playerTwo.requestDir = pongState.moveRequestType.none
+		state.playerTwo.score = playerTwoScore;
+		state.ball.position= {x=.5, y=.5}
+		return state;
+	end,
+	getPlayerState = function(state, playerType)
+		return playerType == pongState.playerType.one and state.playerOne or state.playerTwo
+	end,
+	updatePlayerStateForRequest = function(state, playerType, requestDir)
+		local playerState = pongState.getPlayerState(state, playerType)
+		playerState.requestDir = requestDir
+	end,
+	isDirty = function(stateA, stateB)
+		return isPlayerStateDirty(stateA.playerTwo, stateB.playerTwo) or isPlayerStateDirty(stateA.playerOne, stateB.playerOne) or isBallStateDirty(stateA.ball, stateB.ball)
+	end
+		
+}
+
+pongStateMsg = {
+	actorInputMsgId = "actor-input-message",
+	getActorInputMsg = function(playerIndex, directionType)
+		return { playerIndex = playerIndex, directionType = directionType }
+	end,
+	stateUpdatedMsgId = "state-updated",
+	getStateUpdatedMsg = function(state)
+		return {state = state}
+	end
+		
+}
+

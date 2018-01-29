@@ -1,0 +1,12 @@
+images {
+  image: "/external/1x/ball.png"
+}
+images {
+  image: "/external/1x/paddle.png"
+}
+images {
+  image: "/external/1x/seperator.png"
+}
+margin: 0
+extrude_borders: 0
+inner_padding: 0

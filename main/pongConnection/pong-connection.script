@@ -1,0 +1,41 @@
+
+
+function init(self)
+	self.readBuffer = {}
+	self.connectionManager = RundotTcpMessageClient()
+	local stress = {}
+	self.connectionManager.sendMessage( { {id="join-game"} } )
+	--self.connectionManager.sendMessage( {id=2} )
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+	if self.connectionManager ~= nil then
+		local readCount = self.connectionManager.update(self.readBuffer)
+		for index = 1, readCount do
+			pprint(self.readBuffer[index])
+			self.readBuffer[index] = nil
+		end
+	end
+	
+	
+end
+
+function on_message(self, message_id, message, sender)
+	-- Add message-handling code here
+	-- Remove this function if not needed
+end
+
+function on_input(self, action_id, action)
+	-- Add input-handling code here
+	-- Remove this function if not needed
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Remove this function if not needed
+end

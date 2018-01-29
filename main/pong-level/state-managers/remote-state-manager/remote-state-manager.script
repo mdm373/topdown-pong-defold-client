@@ -1,0 +1,35 @@
+go.property("pongLevelUrl",msg.url("."))
+--local address = "54.85.94.94";
+local address = "localhost";
+function init(self)
+	self.readBuffer = {}
+	self.connectionManager = RundotTcpMessageClient({address=address})
+	self.connectionManager.sendMessage( { {id="join-game"} } )
+end
+
+function on_message(self, message_id, message, sender)
+	if self.connectionManager ~= nil then
+		if hash(pongStateMsg.actorInputMsgId) == message_id then
+			local playerType = message.playerIndex
+			local requestType = message.directionType
+			self.connectionManager.sendMessage( { {id="player-move", playerType=playerType, requestType=requestType} } )
+		elseif hash("ball-bounce") == message_id then
+			self.connectionManager.sendMessage( { {id="ball-bounce", direction=message.direction} } )
+		end
+	end
+end
+
+function update(self, dt)
+	if self.connectionManager ~= nil then
+		local readCount = self.connectionManager.update(self.readBuffer)
+		for index = 1, readCount do
+			local message = self.readBuffer[index]
+			if message.id == "update-state" then
+				msg.post(self.pongLevelUrl, pongStateMsg.stateUpdatedMsgId, pongStateMsg.getStateUpdatedMsg(message.state))
+			elseif message.id == "session-start" then
+				msg.post(self.pongLevelUrl, "player-assigned", {playerIndex = message.playerIndex})
+			end
+			self.readBuffer[index] = nil
+		end
+	end
+end

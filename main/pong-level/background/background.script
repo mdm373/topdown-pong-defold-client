@@ -1,0 +1,7 @@
+
+function init(self)
+	local height = sys.get_config("display.height")
+	local width = sys.get_config("display.width")
+	local position = vmath.vector3(width/2, height/2, 0);
+	go.set_position(position, ".");
+end

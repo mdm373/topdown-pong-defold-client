@@ -1,0 +1,39 @@
+
+
+paddle = {
+	moveToMsgId = "move-to",
+	getMoveToMsg = function(movePercent)
+		return { movePercent = movePercent}
+	end,
+	resetMsgId = "paddle-reset",
+	getResetMessage = function(levelTop, levelBottom, xPosition)
+		return { levelTop = levelTop, levelBottom = levelBottom, xPosition = xPosition}
+	end
+}
+
+go.property("height", 300)
+
+function init(self)
+	self.distance = 0;
+	self.actualMin = 0;
+end
+
+function on_message(self, message_id, message, sender)
+	if hash(paddle.moveToMsgId) == message_id then
+		local point = message.movePercent * self.distance + self.actualMin
+		local currentPosition = go.get_position();
+		currentPosition.y = point;
+		go.set_position(currentPosition);
+	elseif hash(paddle.resetMsgId) == message_id then
+		local worldMax = message.levelTop
+		local worldMin = message.levelBottom
+		self.actualMin = worldMin + self.height/2
+		local actualMax = worldMax - self.height/2
+		self.distance = actualMax - self.actualMin
+		local center = self.distance / 2 + self.actualMin
+		local currentPosition = go.get_position()
+		currentPosition.y = center
+		currentPosition.x = message.xPosition
+		go.set_position(currentPosition)
+	end
+end

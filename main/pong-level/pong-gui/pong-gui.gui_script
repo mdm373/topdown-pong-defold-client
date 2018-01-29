@@ -1,0 +1,23 @@
+
+
+function init(self)
+	
+end
+
+
+
+function on_message(self, message_id, message, sender)
+	if hash("set-score") == message_id then
+		gui.set_text(gui.get_node("score-text"), message.scoreOne .. "-" .. message.scoreTwo)
+	end
+end
+
+function on_input(self, action_id, action)
+	-- Add input-handling code here
+	-- Remove this function if not needed
+end
+
+function on_reload(self)
+	-- Add input-handling code here
+	-- Remove this function if not needed
+end

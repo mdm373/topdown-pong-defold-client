@@ -1,0 +1,46 @@
+
+go.property("playerIndex", 1)
+go.property("stateManagerUrl", msg.url("."))
+go.property("upKey", hash("upW"))
+go.property("downKey", hash("downS"))
+
+
+
+
+function init(self)
+	self.lastMove = nil;
+	self.requestedMove = nil;
+	msg.post(".", "acquire_input_focus")
+	lastMove = pongState.moveRequestType.none
+	division = sys.get_config("display.height")	/ 2;
+end
+
+function final(self)
+	msg.post(".", "release_input_focus")
+end
+
+function update(self, dt)
+	if self.lastMove ~= self.requestedMove then
+		msg.post(self.stateManagerUrl, pongStateMsg.actorInputMsgId, pongStateMsg.getActorInputMsg(self.playerIndex, self.requestedMove))
+	end
+	self.lastMove = self.requestedMove;
+end
+
+function on_message(self, message_id, message, sender)
+	if hash("set-player-index") == message_id then
+		self.playerIndex = message.playerIndex;
+	end
+end
+
+function on_input(self, action_id, action)
+	if ( action_id == self.upKey or action_id == self.downKey ) and action.released then
+		self.requestedMove = pongState.moveRequestType.none
+		return true;
+	elseif action_id == self.upKey then
+		self.requestedMove = pongState.moveRequestType.up	
+		return true;
+	elseif action_id == self.downKey then
+		self.requestedMove = pongState.moveRequestType.down
+		return true;
+	end
+end

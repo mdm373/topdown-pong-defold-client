@@ -1,0 +1,29 @@
+
+go.property("stateManagerUrl", msg.url("."))
+go.property("checkDistance", 20)
+go.property("collisionGroup", hash("barrier"))
+
+ball = {
+	dir = {NONE=0,LEFT=1, RIGHT=2}
+}
+
+local castRay = function(self, start, direction, dirVal)
+	physics.ray_cast(start, start + direction, {self.collisionGroup}, dirVal)
+	--msg.post("@render:", "draw_line", { start_point = start, end_point = start + direction, color = vmath.vector4(1, 0, 0, 1) } )
+end
+	
+
+function update(self, dt)
+	local startOne = go.get_world_position() + vmath.vector3(0, self.checkDistance/2.0, 0);
+	local startTwo = go.get_world_position() - vmath.vector3(0, self.checkDistance/2.0, 0);
+	castRay(self, startOne, vmath.vector3(self.checkDistance, 0, 0), ball.dir.RIGHT)
+	castRay(self, startTwo, vmath.vector3(self.checkDistance, 0, 0), ball.dir.RIGHT)
+	castRay(self, startOne, vmath.vector3(-self.checkDistance, 0, 0), ball.dir.LEFT)
+	castRay(self, startTwo, vmath.vector3(-self.checkDistance, 0, 0), ball.dir.LEFT)
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("ray_cast_response") then
+		msg.post(self.stateManagerUrl, "ball-bounce", {direction=message.request_id})
+	end
+end

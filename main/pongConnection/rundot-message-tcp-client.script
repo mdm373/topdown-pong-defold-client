@@ -1,0 +1,111 @@
+require "builtins.scripts.socket"
+local messageQueue = require("main.pongConnection.messageQueue")
+local jsonEncode = JsonParsing.encode
+
+local getDefaultedConfig = function(inConfig)
+	inConfig = inConfig == nil and {} or inConfig
+	local config = {
+		port = inConfig.port and inConfig.port or 1337,
+		address = inConfig.address and inConfig.address or "localhost",
+		delimStart = inConfig.delimStart and inConfig.delimStart or "__GMMSST",
+		delimEnd = inConfig.delimEnd and inConfig.delimEnd or "__GMMSND",
+		frameLength = inConfig.frameLength and inConfig.frameLength or 8192
+	}
+	if config.frameLength < #config.delimEnd then
+		error("invalid connection config, frame length cannot be less than ending delimiter. The connection will not be established")
+	end
+	return config
+end
+
+RundotTcpMessageClient = function(config)
+	local config = getDefaultedConfig(config)
+	local sendQueue = messageQueue()
+	local receiveBuffer = ""
+	local  client = socket.connect(config.address, config.port)
+	client:settimeout(0)
+	client:setoption('tcp-nodelay', true)
+
+	local sendMessageChunk = function(chunk) 
+		hasPending = false
+		local maxSend = chunk.startIndex + math.min(config.frameLength, chunk.endIndex - chunk.startIndex)
+		local sent = client:send(chunk.encoded, chunk.startIndex, maxSend);
+		local pendingChunk = nil
+		if sent < chunk.endIndex then
+			hadPending = true
+			pendingChunk = {startIndex = sent+1, endIndex = chunk.endIndex, encoded = chunk.encoded}
+			if pendingChunk ~= nil then
+				sendQueue.putPendingMessageChunkBack(pendingChunk)
+			end
+		end
+		return hadPending
+	end
+
+	local sendOutgoingMessages = function()
+		while (sendQueue.getCount()) > 0 do
+			local preCount = sendQueue.getCount()
+			sendMessageChunk(sendQueue.popPendingMessageChunk())
+			if  preCount >= sendQueue.getCount() then
+				break
+			end
+		end
+	end
+
+	local decode = function(message)
+		return json.decode(message)
+	end
+	
+	local parsReceiveBufferIntoMessageBuffer= function(incomingMessagesBuffer)
+		local count = 0
+		local messages = string_split(receiveBuffer, config.delimStart)
+		for messageIndex = 1, #messages do
+			local message = messages[messageIndex]
+			local messageTrimmed = string.sub(message, 1, #message - #config.delimEnd)
+			if #messageTrimmed > 0 then
+				--pcall(function()
+					incomingMessagesBuffer[#incomingMessagesBuffer+1] = json.decode(messageTrimmed)
+					count = count + 1
+				--end) 
+			end
+		end
+		return count
+	end
+	
+	local readIntoReceiveBuffer = function()
+		local received = client:receive()
+		if(received ~= nil) then
+			receiveBuffer = receiveBuffer .. received
+		end
+	end
+
+	local readIncomingMessagesToBuffer = function(incomingMessagesBuffer)
+		local count = 0;
+		local incomingSockets = socket.select({client}, nil, 0)
+		if #incomingSockets > 0 then
+			hadIncoming = true
+			readIntoReceiveBuffer()
+			if string_ends_with(receiveBuffer, config.delimEnd) then
+				count = parsReceiveBufferIntoMessageBuffer(incomingMessagesBuffer)
+				receiveBuffer = ""
+			end
+		end
+		return count
+	end
+
+	return {	
+		sendMessage = function(messages)
+			local encoded = ""
+			for index = 1, #messages do
+				local message = messages[index]
+				encoded =  encoded .. config.delimStart .. jsonEncode(message) .. config.delimEnd
+			end
+			local messageChunk = {startIndex = 0, endIndex = #encoded, encoded = encoded} 
+			sendQueue.pushPendingMessageChunk(messageChunk)
+		end,
+
+		update = function(incomingMessagesBuffer)
+			sendOutgoingMessages()
+			return readIncomingMessagesToBuffer(incomingMessagesBuffer)
+		end
+
+	}
+end

@@ -1,0 +1,52 @@
+
+pongLevel = {
+	actorInputMessage = "actor-input-message",
+	getActorInputMessage = function(playerIndex, directionType)
+		return { playerIndex = playerIndex, directionType = directionType }
+	end
+}
+
+go.property("paddleOneUrl", msg.url("."));
+go.property("paddleTwoUrl", msg.url("."));
+go.property("ballUrl", msg.url("."))
+go.property("guiUrl", msg.url("."))
+go.property("playerInterfaceUrl", msg.url("."))
+go.property("playerAlternateInterfaceUrl", msg.url("."))
+go.property("level_top", 720)
+go.property("level_bottom", 0)
+go.property("level_left", 0)
+go.property("level_right", 1280)
+go.property("paddle_buffer", 50)
+
+
+local getResetMessage = function(self, xPosition)
+	return paddle.getResetMessage(self.level_top, self.level_bottom, xPosition);
+end
+
+function init(self)
+	msg.post(self.paddleOneUrl, paddle.resetMsgId, getResetMessage(self, self.paddle_buffer))
+	msg.post(self.paddleTwoUrl, paddle.resetMsgId, getResetMessage(self, self.level_right- self.paddle_buffer))
+end
+
+function onStateUpdate(state)
+	logger.debug("state updated")
+end
+
+function on_message(self, message_id, message, sender)
+	if hash(pongStateMsg.stateUpdatedMsgId) == message_id then
+		local state = message.state
+		msg.post(self.guiUrl, "set-score", {scoreOne=state.playerOne.score, scoreTwo=state.playerTwo.score})
+		msg.post(self.paddleOneUrl, paddle.moveToMsgId, paddle.getMoveToMsg(state.playerOne.position))
+		msg.post(self.paddleTwoUrl, paddle.moveToMsgId, paddle.getMoveToMsg(state.playerTwo.position))
+		local width = self.level_right - self.level_left;
+		local height = self.level_top - self.level_bottom;
+		local ballPosition = go.get_position(self.ballUrl);
+		ballPosition.x = state.ball.position.x * width + self.level_left
+		ballPosition.y = state.ball.position.y * height + self.level_bottom
+		go.set_position(ballPosition, self.ballUrl)
+	elseif hash("player-assigned") == message_id then
+		print("We are player: " .. message.playerIndex)
+		msg.post(self.playerInterfaceUrl, "set-player-index", {playerIndex = message.playerIndex})
+		msg.post(self.playerAlternateInterfaceUrl, "set-player-index", {playerIndex = message.playerIndex})
+	end
+end
